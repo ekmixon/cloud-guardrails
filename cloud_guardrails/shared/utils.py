@@ -58,8 +58,7 @@ def read_json_file(file: str) -> dict:
 
 def get_policy_json(service_name: str, filename: str):
     file = os.path.join(AZURE_POLICY_SERVICE_DIRECTORY, service_name, filename)
-    contents = read_json_file(file)
-    return contents
+    return read_json_file(file)
 
 
 def chomp_keep_single_spaces(string):
@@ -78,8 +77,7 @@ def get_compliance_table() -> list:
     results = []
     with open(compliance_data) as csv_file:
         csv_reader = csv.DictReader(csv_file, delimiter=",")
-        for row in csv_reader:
-            results.append(row)
+        results.extend(iter(csv_reader))
     return results
 
 
@@ -105,16 +103,12 @@ def print_grey(string):
 
 
 def normalize_display_name_string(string: str) -> str:
-    string = string.replace("[Preview]: ", "")
-    return string
+    return string.replace("[Preview]: ", "")
 
 
 def strip_special_characters(some_string: str) -> str:
     """Remove all special characters, punctuation, and spaces from a string"""
-    # Input: "Special $#! characters   spaces 888323"
-    # Output: 'Specialcharactersspaces888323'
-    result = ''.join(e for e in some_string if e.isalnum())
-    return result
+    return ''.join(e for e in some_string if e.isalnum())
 
 
 def normalize_display_names_list(display_names: list) -> list:
@@ -130,8 +124,7 @@ def get_github_link(service_name: str, file_name: str) -> str:
     github_link_prefix = "https://github.com/Azure/azure-policy/tree/master/built-in-policies/policyDefinitions"
     if " " in service_name:
         service_name = service_name.replace(" ", "%20")
-    result = f"{github_link_prefix}/{service_name}/{file_name}"
-    return result
+    return f"{github_link_prefix}/{service_name}/{file_name}"
 
 
 # shorten the name if it is over a certain length to avoid hitting limits
@@ -147,7 +140,7 @@ def format_policy_name(name: str, parameter_requirement_str: str) -> str:
     # If the suffix is '-NP', '-OP', or '-RP'. the name_length_limit will be 21
     name_length_limit = 24 - suffix_length
     if len(name) > name_length_limit:
-        name = name[0:name_length_limit-1]
+        name = name[:name_length_limit-1]
     initiative_name = f"{name}-{parameter_requirement_str}"
     initiative_name = initiative_name.replace("-", "_")
     # initiative_name = initiative_name.lower()
@@ -156,10 +149,7 @@ def format_policy_name(name: str, parameter_requirement_str: str) -> str:
 
 def is_none_instance(value) -> bool:
     """Given a value, check if it is just an empty list or an empty object, or return None"""
-    if isinstance(value, type(None)):
-        return True
-    else:
-        return False
+    return isinstance(value, type(None))
 
 
 def get_real_value(value):

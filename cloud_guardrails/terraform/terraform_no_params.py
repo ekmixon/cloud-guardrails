@@ -29,14 +29,11 @@ class TerraformTemplateNoParams:
         self.subscription_name = subscription_name
         self.management_group = management_group
         self.policy_id_pairs = self._policy_id_pairs(policy_id_pairs)
-        if enforcement_mode:
-            self.enforcement_string = "true"
-        else:
-            self.enforcement_string = "false"
+        self.enforcement_string = "true" if enforcement_mode else "false"
         self.category = category
 
     def _initiative_name(self, subscription_name: str, management_group: str) -> str:
-        if subscription_name == "" and management_group == "":
+        if not subscription_name and not management_group:
             raise Exception(
                 "Please supply a value for the subscription name or the management group"
             )
@@ -45,11 +42,13 @@ class TerraformTemplateNoParams:
             parameter_requirement_str = "NP-Enforce"
         else:
             parameter_requirement_str = f"{parameter_requirement_str}-Audit"
-        if subscription_name:
-            initiative_name = utils.format_policy_name(subscription_name, parameter_requirement_str)
-        else:
-            initiative_name = utils.format_policy_name(management_group, parameter_requirement_str)
-        return initiative_name
+        return (
+            utils.format_policy_name(subscription_name, parameter_requirement_str)
+            if subscription_name
+            else utils.format_policy_name(
+                management_group, parameter_requirement_str
+            )
+        )
 
     @staticmethod
     def _policy_id_pairs(policy_id_pairs: dict) -> dict:
@@ -120,10 +119,7 @@ class TerraformParameter:
 
     def _value(self, value):
         """If value is not set, set it to default_value. Default value can be overridden later."""
-        if not value:
-            return self.default_value
-        else:
-            return value
+        return value or self.default_value
 
     @staticmethod
     def _parameter_type(parameter_type: str) -> str:
@@ -140,7 +136,7 @@ class TerraformParameter:
         return f"[parameters('{self.name}')]"
 
     def json(self) -> dict:
-        result = dict(
+        return dict(
             name=self.name,
             service=self.service,
             policy_definition_name=self.policy_definition_name,
@@ -148,14 +144,12 @@ class TerraformParameter:
             default_value=self.default_value,
             parameter_type=self.parameter_type,
         )
-        return result
 
     @property
     def policy_assignment_parameter_value(self) -> str:
         """Produces the string ' evaluatedSkuNames = { "value" : ["Standard"] }' for use in the Policy Assignment parameters section"""
         value = json.dumps(self.value)
-        result = f"{self.name} = {{ \"value\" = {value} }}"
-        return result
+        return f"{self.name} = {{ \"value\" = {value} }}"
 
     def __repr__(self) -> str:
         return json.dumps(self.json())

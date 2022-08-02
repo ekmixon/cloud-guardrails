@@ -32,32 +32,29 @@ def skip_display_names(policy_definition: PolicyDefinition, config: Config = DEF
     # First, if the display name starts with [Deprecated], skip it
     if policy_definition.display_name.startswith("[Deprecated]: "):
         logger.debug(
-            "Skipping Policy (Deprecated). Policy name: %s"
-            % policy_definition.display_name
+            f"Skipping Policy (Deprecated). Policy name: {policy_definition.display_name}"
         )
+
         return True
-    # If the policy is deprecated, skip it
     elif policy_definition.is_deprecated:
         logger.debug(
-            "Skipping Policy (Deprecated). Policy name: %s"
-            % policy_definition.display_name
+            f"Skipping Policy (Deprecated). Policy name: {policy_definition.display_name}"
         )
+
         return True
     elif policy_definition.modifies_resources:
         logger.info(f"Skipping Policy (Modify). Policy name: {policy_definition.display_name} with effects: {policy_definition.allowed_effects}")
         return True
-    # Some Policies with Modify capabilities don't have an Effect - only way to detect them is to see if the name starts with 'Deploy'
     elif policy_definition.display_name.startswith("Deploy "):
         logger.info(f"Skipping Policy (Deploy). Policy name: {policy_definition.display_name} with effects: {policy_definition.allowed_effects}")
         return True
-    # If we have specified it in the Config config, skip it
     elif config.is_excluded(
             service_name=policy_definition.service_name, display_name=policy_definition.display_name
     ):
         logger.info(
-            "Skipping Policy (Excluded by user). Policy name: %s"
-            % policy_definition.display_name
+            f"Skipping Policy (Excluded by user). Policy name: {policy_definition.display_name}"
         )
+
         return True
     else:
         # print(f"Allowing policy with effects {policy_definition.allowed_effects} and name {policy_definition.display_name}")
@@ -79,10 +76,12 @@ class AzurePolicies:
         if service_names == ["all"]:
             service_names = utils.get_service_names()
             service_names.sort()
-        service_names_to_remove = []
-        for service_name in service_names:
-            if self.config.is_service_excluded(service_name=service_name):
-                service_names_to_remove.append(service_name)
+        service_names_to_remove = [
+            service_name
+            for service_name in service_names
+            if self.config.is_service_excluded(service_name=service_name)
+        ]
+
         for service_name in service_names_to_remove:
             service_names.remove(service_name)
         return service_names
@@ -110,17 +109,21 @@ class AzurePolicies:
         service_name = self.policy_definitions.get(policy_id).get("service_name")
         policy_content = self.policy_definitions.get(policy_id).get("policy_content")
         file_name = self.policy_definitions.get(policy_id).get("file_name")
-        policy_definition = PolicyDefinition(policy_content=policy_content, service_name=service_name,
-                                             file_name=file_name)
-        return policy_definition
+        return PolicyDefinition(
+            policy_content=policy_content,
+            service_name=service_name,
+            file_name=file_name,
+        )
 
     def get_policy_definition_by_display_name(self, display_name: str) -> PolicyDefinition:
-        policy_definition = None
-        for policy_id, policy_details in self.policy_definitions.items():
-            if policy_details.get("display_name") == display_name:
-                policy_definition = self.get_policy_definition(policy_id=policy_id)
-                break
-        return policy_definition
+        return next(
+            (
+                self.get_policy_definition(policy_id=policy_id)
+                for policy_id, policy_details in self.policy_definitions.items()
+                if policy_details.get("display_name") == display_name
+            ),
+            None,
+        )
 
     def get_policy_id_by_display_name(self, display_name: str) -> str:
         policy_definition = self.get_policy_definition_by_display_name(display_name=display_name)
@@ -128,14 +131,10 @@ class AzurePolicies:
 
     def get_parameters_by_policy_id(self, policy_id: str, include_effect: bool = False) -> dict:
         policy_definition = self.get_policy_definition(policy_id=policy_id)
-        parameters = {}
-        for parameter_name, parameter_details in policy_definition.parameters.items():
-            # Fixing issue #92
-            # if not include_effect:
-                # if parameter_details.name == "effect":
-                #     continue
-            parameters[parameter_details.name] = parameter_details.json()
-        return parameters
+        return {
+            parameter_details.name: parameter_details.json()
+            for parameter_name, parameter_details in policy_definition.parameters.items()
+        }
 
     def get_allowed_values_for_parameter(self, policy_id: str, parameter_name: str):
         """Given a policy ID and a parameter name, get the allowed_values for a parameter"""
@@ -179,13 +178,11 @@ class AzurePolicies:
 
     def get_required_parameters(self, policy_id: str) -> list:
         policy_definition = self.get_policy_definition(policy_id=policy_id)
-        parameters = policy_definition.get_required_parameters()
-        return parameters
+        return policy_definition.get_required_parameters()
 
     def get_optional_parameters(self, policy_id: str) -> list:
         policy_definition = self.get_policy_definition(policy_id=policy_id)
-        parameters = policy_definition.get_optional_parameters()
-        return parameters
+        return policy_definition.get_optional_parameters()
 
     def is_policy_id_excluded(self, policy_id: str) -> bool:
         policy_definition = self.get_policy_definition(policy_id=policy_id)
@@ -193,34 +190,31 @@ class AzurePolicies:
         # First, if the display name starts with [Deprecated], skip it
         if policy_definition.display_name.startswith("[Deprecated]: "):
             logger.debug(
-                "Skipping Policy (Deprecated). Policy name: %s"
-                % policy_definition.display_name
+                f"Skipping Policy (Deprecated). Policy name: {policy_definition.display_name}"
             )
+
             return True
-        # If the policy is deprecated, skip it
         elif policy_definition.is_deprecated:
             logger.debug(
-                "Skipping Policy (Deprecated). Policy name: %s"
-                % policy_definition.display_name
+                f"Skipping Policy (Deprecated). Policy name: {policy_definition.display_name}"
             )
+
             return True
         elif policy_definition.modifies_resources:
             logger.info(
                 f"Skipping Policy (Modify). Policy name: {policy_definition.display_name} with effects: {policy_definition.allowed_effects}")
             return True
-        # Some Policies with Modify capabilities don't have an Effect - only way to detect them is to see if the name starts with 'Deploy'
         elif policy_definition.display_name.startswith("Deploy "):
             logger.info(
                 f"Skipping Policy (Deploy). Policy name: {policy_definition.display_name} with effects: {policy_definition.allowed_effects}")
             return True
-        # If we have specified it in the Config config, skip it
         elif self.config.is_excluded(
                 service_name=policy_definition.service_name, display_name=policy_definition.display_name
         ):
             logger.info(
-                "Skipping Policy (Excluded by user). Policy name: %s"
-                % policy_definition.display_name
+                f"Skipping Policy (Excluded by user). Policy name: {policy_definition.display_name}"
             )
+
             return True
         else:
             # print(f"Allowing policy with effects {policy_definition.allowed_effects} and name {policy_definition.display_name}")
@@ -229,14 +223,24 @@ class AzurePolicies:
     def display_names(self, service_name: str = None) -> list:
         results = []
         if service_name:
-            for policy_id, policy_details in self.service_definitions.get(service_name).items():
-                if not self.is_policy_id_excluded(policy_id=policy_id):
-                    results.append(policy_details.get("display_name"))
+            results.extend(
+                policy_details.get("display_name")
+                for policy_id, policy_details in self.service_definitions.get(
+                    service_name
+                ).items()
+                if not self.is_policy_id_excluded(policy_id=policy_id)
+            )
+
         else:
             for service in self.service_names:
-                for policy_id, policy_details in self.service_definitions.get(service).items():
-                    if not self.is_policy_id_excluded(policy_id=policy_id):
-                        results.append(policy_details.get("display_name"))
+                results.extend(
+                    policy_details.get("display_name")
+                    for policy_id, policy_details in self.service_definitions.get(
+                        service
+                    ).items()
+                    if not self.is_policy_id_excluded(policy_id=policy_id)
+                )
+
         results.sort()
         return results
 
@@ -247,21 +251,20 @@ class AzurePolicies:
             service_results = []
             for policy_id, policy_details in service_policies.items():
                 if not self.is_policy_id_excluded(policy_id=policy_id):
-                    if no_params:
-                        if policy_details.get("no_params"):
-                            service_results.append(policy_details.get("display_name"))
-                    if params_optional:
-                        if policy_details.get("params_optional"):
-                            service_results.append(policy_details.get("display_name"))
-                    if params_required:
-                        if policy_details.get("params_required"):
-                            service_results.append(policy_details.get("display_name"))
+                    if no_params and policy_details.get("no_params"):
+                        service_results.append(policy_details.get("display_name"))
+                    if params_optional and policy_details.get("params_optional"):
+                        service_results.append(policy_details.get("display_name"))
+                    if params_required and policy_details.get("params_required"):
+                        service_results.append(policy_details.get("display_name"))
                     # If audit_only is flagged, create a new list to hold the audit-only ones, then save it as the new service results
                     if audit_only:
-                        filtered_service_results = []
-                        for service_result in service_results:
-                            if policy_details.get("audit_only"):
-                                filtered_service_results.append(service_result)
+                        filtered_service_results = [
+                            service_result
+                            for service_result in service_results
+                            if policy_details.get("audit_only")
+                        ]
+
                         service_results = filtered_service_results.copy()
                     # If audit_only is not used, don't worry about it
                     service_results.sort()
@@ -279,71 +282,68 @@ class AzurePolicies:
             service_results = {}
             for policy_id, policy_details in service_policies.items():
                 if not self.is_policy_id_excluded(policy_id=policy_id):
-                    if no_params:
-                        if policy_details.get("no_params"):
-                            policy_definition = self.get_policy_definition(policy_id=policy_details.get("short_id"))
-                            service_results[policy_details.get("display_name")] = dict(
-                                short_id=policy_details.get("short_id"),
-                                long_id=policy_definition.id,
-                                display_name=policy_details.get("display_name").replace("[Preview]: ", ""),
-                            )
-                    if params_optional:
-                        if policy_details.get("params_optional"):
-                            parameters = {}
-                            policy_definition = self.get_policy_definition(policy_id=policy_details.get("short_id"))
+                    if no_params and policy_details.get("no_params"):
+                        policy_definition = self.get_policy_definition(policy_id=policy_details.get("short_id"))
+                        service_results[policy_details.get("display_name")] = dict(
+                            short_id=policy_details.get("short_id"),
+                            long_id=policy_definition.id,
+                            display_name=policy_details.get("display_name").replace("[Preview]: ", ""),
+                        )
+                    if params_optional and policy_details.get("params_optional"):
+                        parameters = {}
+                        policy_definition = self.get_policy_definition(policy_id=policy_details.get("short_id"))
                             # Get the policy definition ID
                             # Look up the policy definition and set the object
                             # For parameter name, parameter details, do stuff from get_policy_definition_parameters
-                            for parameter_name, parameter_details in policy_definition.parameters.items():
-                                # fix issue #92
-                                # if parameter_details.name == "effect":
-                                #     continue
-                                parameters[parameter_details.name] = parameter_details.json()
-                                if parameter_name == "effect":
-                                    if enforce:
-                                        # It could be Capitalized or lowercase in allowed_values
-                                        if "Deny" in parameter_details.allowed_values:
-                                            parameters[parameter_name]["value"] = "Deny"
-                                        # lowercase = [x.lower() for x in parameter_details.allowed_values]
-                                        if "deny" in parameter_details.allowed_values:
-                                            parameters[parameter_name]["value"] = "deny"
-                            service_results[policy_details.get("display_name")] = dict(
-                                short_id=policy_details.get("short_id"),
-                                long_id=policy_definition.id,
-                                display_name=policy_details.get("display_name").replace("[Preview]: ", ""),
-                                parameters=parameters
-                            )
-                    if params_required:
-                        if policy_details.get("params_required"):
-                            parameters = {}
-                            policy_definition = self.get_policy_definition(policy_id=policy_details.get("short_id"))
+                        for parameter_name, parameter_details in policy_definition.parameters.items():
+                            # fix issue #92
+                            # if parameter_details.name == "effect":
+                            #     continue
+                            parameters[parameter_details.name] = parameter_details.json()
+                            if parameter_name == "effect" and enforce:
+                                # It could be Capitalized or lowercase in allowed_values
+                                if "Deny" in parameter_details.allowed_values:
+                                    parameters[parameter_name]["value"] = "Deny"
+                                # lowercase = [x.lower() for x in parameter_details.allowed_values]
+                                if "deny" in parameter_details.allowed_values:
+                                    parameters[parameter_name]["value"] = "deny"
+                        service_results[policy_details.get("display_name")] = dict(
+                            short_id=policy_details.get("short_id"),
+                            long_id=policy_definition.id,
+                            display_name=policy_details.get("display_name").replace("[Preview]: ", ""),
+                            parameters=parameters
+                        )
+                    if params_required and policy_details.get("params_required"):
+                        parameters = {}
+                        policy_definition = self.get_policy_definition(policy_id=policy_details.get("short_id"))
                             # Get the policy definition ID
                             # Look up the policy definition and set the object
                             # For parameter name, parameter details, do stuff from get_policy_definition_parameters
-                            for parameter_name, parameter_details in policy_definition.parameters.items():
-                                # fix issue #92
-                                # if parameter_details.name == "effect":
-                                #     continue
-                                parameters[parameter_details.name] = parameter_details.json()
-                                if parameter_details.name == "effect":
-                                    if enforce:
-                                        # It could be Capitalized or lowercase in allowed_values
-                                        if "Deny" in parameter_details.allowed_values:
-                                            parameters[parameter_details.name]["value"] = "Deny"
-                                        # lowercase = [x.lower() for x in parameter_details.allowed_values]
-                                        if "deny" in parameter_details.allowed_values:
-                                            parameters[parameter_details.name]["value"] = "deny"
-                            service_results[policy_details.get("display_name")] = dict(
-                                short_id=policy_details.get("short_id"),
-                                long_id=policy_definition.id,
-                                display_name=policy_details.get("display_name").replace("[Preview]: ", ""),
-                            )
+                        for parameter_name, parameter_details in policy_definition.parameters.items():
+                            # fix issue #92
+                            # if parameter_details.name == "effect":
+                            #     continue
+                            parameters[parameter_details.name] = parameter_details.json()
+                            if parameter_details.name == "effect" and enforce:
+                                # It could be Capitalized or lowercase in allowed_values
+                                if "Deny" in parameter_details.allowed_values:
+                                    parameters[parameter_details.name]["value"] = "Deny"
+                                # lowercase = [x.lower() for x in parameter_details.allowed_values]
+                                if "deny" in parameter_details.allowed_values:
+                                    parameters[parameter_details.name]["value"] = "deny"
+                        service_results[policy_details.get("display_name")] = dict(
+                            short_id=policy_details.get("short_id"),
+                            long_id=policy_definition.id,
+                            display_name=policy_details.get("display_name").replace("[Preview]: ", ""),
+                        )
                     # If audit_only is flagged, create a new list to hold the audit-only ones, then save it as the new service results
                     if audit_only:
-                        filtered_service_results = {}
-                        for service_result, service_result_details in service_results.items():
-                            if policy_details.get("audit_only"):
-                                filtered_service_results[service_result] = service_result_details
+                        filtered_service_results = {
+                            service_result: service_result_details
+                            for service_result, service_result_details in service_results.items()
+                            if policy_details.get("audit_only")
+                        }
+
                         service_results = filtered_service_results.copy()
 
                     service_results = OrderedDict(sorted(service_results.items()))
@@ -351,12 +351,11 @@ class AzurePolicies:
                     # If audit_only is not used, don't worry about it
                     if service_results:
                         results[service_name] = service_results
-        # Trim the irrelevant services
-        policy_id_pairs = {}
-        for service_name, service_policies in results.items():
-            if service_name in self.service_names:
-                policy_id_pairs[service_name] = service_policies
-        return policy_id_pairs
+        return {
+            service_name: service_policies
+            for service_name, service_policies in results.items()
+            if service_name in self.service_names
+        }
 
     def compliance_coverage_data(self, no_params: bool = True, params_optional: bool = True, params_required: bool = True) -> dict:
         results = {}
@@ -380,22 +379,19 @@ class AzurePolicies:
                 if skip_display_names(policy_definition=policy_definition, config=self.config):
                     continue
                 definitions_found.append(f"{service_name}: {display_name}")
-                service_results = {}
-                # if it exists in the display names
-                if policy_definition_compliance_metadata:
-                    policy_def_results = dict(
-                        description=policy_definition_compliance_metadata.get("description"),
-                        effects=policy_definition_compliance_metadata.get("effects").lower(),
-                        github_link=policy_definition_compliance_metadata.get("github_link"),
-                        github_version=policy_definition_compliance_metadata.get("github_version"),
-                        name=display_name,
-                        policy_id=policy_definition_compliance_metadata.get("policy_id"),
-                        service_name=policy_definition_compliance_metadata.get("service_name"),
-                        benchmarks=policy_definition_compliance_metadata.get("benchmarks"),
-                    )
-                    service_results[display_name] = policy_def_results
-                else:
+                if not policy_definition_compliance_metadata:
                     continue
+                policy_def_results = dict(
+                    description=policy_definition_compliance_metadata.get("description"),
+                    effects=policy_definition_compliance_metadata.get("effects").lower(),
+                    github_link=policy_definition_compliance_metadata.get("github_link"),
+                    github_version=policy_definition_compliance_metadata.get("github_version"),
+                    name=display_name,
+                    policy_id=policy_definition_compliance_metadata.get("policy_id"),
+                    service_name=policy_definition_compliance_metadata.get("service_name"),
+                    benchmarks=policy_definition_compliance_metadata.get("benchmarks"),
+                )
+                service_results = {display_name: policy_def_results}
                 if not results.get(service_name):
                     results[service_name] = service_results
                 else:
@@ -403,10 +399,11 @@ class AzurePolicies:
         # Address items that are not listed under the compliance benchmarks
         for service_name, display_names in display_names_sorted.items():
             for display_name in display_names:
-                service_results = {}
-                if service_name in results.keys():
-                    if display_name in results[service_name].keys():
-                        continue
+                if (
+                    service_name in results
+                    and display_name in results[service_name].keys()
+                ):
+                    continue
                 definitions_found.append(f"{service_name}: {display_name}")
                 # Check if this is excluded by the config
                 policy_definition = self.get_policy_definition_by_display_name(display_name)
@@ -424,7 +421,7 @@ class AzurePolicies:
                     service_name=service_name,
                     benchmarks={},
                 )
-                service_results[display_name] = policy_def_results
+                service_results = {display_name: policy_def_results}
                 if not results.get(service_name):
                     results[service_name] = service_results
                 else:
@@ -439,7 +436,7 @@ class AzurePolicies:
             if this_policy_metadata["benchmarks"].get(benchmark_name, None):
                 benchmark_id = this_policy_metadata["benchmarks"][benchmark_name]["requirement_id"]
                 benchmark_id = benchmark_id.replace(f"{benchmark_name}: ", "")
-                benchmark_id = benchmark_id.replace(f"ID : ", "")
+                benchmark_id = benchmark_id.replace("ID : ", "")
             else:
                 benchmark_id = ""
             return benchmark_id
@@ -490,10 +487,7 @@ class AzurePolicies:
                 #     parameter_names.remove("effect")
                 parameter_names = ", ".join(parameter_names)
                 # Store Audit only result as a string
-                if policy_definition_obj.audit_only:
-                    audit_only = "Yes"
-                else:
-                    audit_only = "No"
+                audit_only = "Yes" if policy_definition_obj.audit_only else "No"
                 result = {
                     "Service": service_name,
                     "Policy Definition": policy_definition_string,

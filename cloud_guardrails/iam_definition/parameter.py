@@ -18,21 +18,18 @@ class Parameter:
         self.type = parameter_json.get("type")
         # Do some weird stuff because in this case, [] vs None has different implications
         if "defaultValue" in str(parameter_json):
-            default_value = parameter_json.get("defaultValue", None)
-            if default_value:
+            if default_value := parameter_json.get("defaultValue", None):
                 self.default_value = default_value
             else:
-                if self.type == "Array":
-                    self.default_value = []
-                else:
-                    self.default_value = None
+                self.default_value = [] if self.type == "Array" else None
+        self.default_value = parameter_json.get("defaultValue")
+        self.value = (
+            None
+            if isinstance(self.default_value, type(None))
+            else self.default_value
+        )
 
-        self.default_value = parameter_json.get("defaultValue", None)
-        if not isinstance(self.default_value, type(None)):
-            self.value = self.default_value
-        else:
-            self.value = None
-        self.allowed_values = parameter_json.get("allowedValues", None)
+        self.allowed_values = parameter_json.get("allowedValues")
 
         # Metadata
         self.metadata_json = parameter_json.get("metadata")
@@ -76,22 +73,21 @@ class Parameter:
 
     def parameter_config(self) -> dict:
         """The config format for this parameter to be fed into YAML"""
-        result = {}
         # If there is no default value set, but it is a dict or a list, return an empty data type
         if self.default_value:
             default_value = self.default_value
+        elif self.type.lower() == "object":
+            default_value = {}
+        elif self.type.lower() == "array":
+            default_value = []
+        elif self.type.lower() == "string":
+            default_value = ""
         else:
-            if self.type.lower() == "object":
-                default_value = {}
-            elif self.type.lower() == "array":
-                default_value = []
-            elif self.type.lower() == "string":
-                default_value = ""
-            else:
-                default_value = None
-        result[self.name] = dict(
-            type=self.type,
-            default_value=default_value,
-            allowed_values=self.allowed_values
-        )
-        return result
+            default_value = None
+        return {
+            self.name: dict(
+                type=self.type,
+                default_value=default_value,
+                allowed_values=self.allowed_values,
+            )
+        }

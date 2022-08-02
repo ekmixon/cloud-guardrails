@@ -59,7 +59,7 @@ def scrape_standard(html_file_path: str, benchmark_name: str, replacement_string
                 continue
             for row in rows:
                 cells = row.find_all("td")
-                if len(cells) == 0 or len(cells) == 1:
+                if len(cells) in {0, 1}:
                     continue
 
                 # Cell 0: Name with Azure Portal Link

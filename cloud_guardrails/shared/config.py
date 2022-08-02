@@ -38,54 +38,35 @@ class Config:
         return json.dumps(result)
 
     def json(self):
-        result = dict(
+        return dict(
             match_only_keywords=self.match_only_keywords,
             exclude_services=self.exclude_services,
             exclude_policies=self.exclude_policies,
         )
-        return result
 
     @staticmethod
     def _match_only_keywords(keywords: list) -> list:
-        if not keywords:
-            match_only_keywords = []
-        else:
-            match_only_keywords = [
-                x.lower() for x in keywords if x != ""
-            ]
-        return match_only_keywords
+        return [x.lower() for x in keywords if x != ""] if keywords else []
 
     @staticmethod
     def _exclude_keywords(keywords: list) -> list:
-        if not keywords:
-            exclude_keywords = []
-        else:
-            exclude_keywords = [
-                x.lower() for x in keywords if x != ""
-            ]
-        return exclude_keywords
+        return [x.lower() for x in keywords if x != ""] if keywords else []
 
     def _exclude_policies(self, policies_dict: dict = None) -> dict:
-        result = {}
-        if policies_dict:
-            # Let's just loop through and validate the service names.
-            for service, values in policies_dict.items():
-                if service not in self.supported_services:
-                    raise Exception(
-                        "Error: the provided service %s is not in the list of supported services"
-                        % service
-                    )
-                # Let's do some weird voodoo because the default template has empty strings as part of the dictionary
-                service_values = []
-                for value in values:
-                    if value == "":
-                        pass
-                    else:
-                        service_values.append(value)
-                result[service] = service_values
-            return result
-        else:
+        if not policies_dict:
             return {}
+        result = {}
+            # Let's just loop through and validate the service names.
+        for service, values in policies_dict.items():
+            if service not in self.supported_services:
+                raise Exception(
+                    f"Error: the provided service {service} is not in the list of supported services"
+                )
+
+                # Let's do some weird voodoo because the default template has empty strings as part of the dictionary
+            service_values = [value for value in values if value != ""]
+            result[service] = service_values
+        return result
 
     def _exclude_services(self, services: list = None) -> list:
         exclude_services = []
@@ -97,9 +78,9 @@ class Config:
                     exclude_services.append(service)
                 else:
                     raise Exception(
-                        "Error: the provided service %s is not in the list of supported services"
-                        % service
+                        f"Error: the provided service {service} is not in the list of supported services"
                     )
+
         return exclude_services
 
     def is_keyword_match(self, policy_display_name: str) -> bool:
@@ -125,40 +106,38 @@ class Config:
 
         # If the service name is not in the list of excluded policies at all, then it's not excluded
         service_exists = self.exclude_policies.get(service_name, None)
-        if not service_exists:
-            return False
-
-        # If the service name is listed, let's loop through the items under each service and see if the text matches.
-        for service_name, service_policies in self.exclude_policies.items():
-            if display_name in service_policies:
-                return True
-        # If we've made it this far, then it is not excluded
-        return result
+        return (
+            next(
+                (
+                    True
+                    for service_name, service_policies in self.exclude_policies.items()
+                    if display_name in service_policies
+                ),
+                result,
+            )
+            if service_exists
+            else False
+        )
 
     def is_excluded(self, service_name: str, display_name: str) -> bool:
         # Case: substrings from match_only_keywords are NOT in the display name
-        if self.match_only_keywords:
-            if not self.is_keyword_match(policy_display_name=display_name):
-                return True
+        if self.match_only_keywords and not self.is_keyword_match(
+            policy_display_name=display_name
+        ):
+            return True
 
         # Case: Service is listed in excluded services
         if service_name in self.exclude_services:
             return True
 
-        # Case: The policy name is in the list of excluded policies, sorted by service
-        policy_excluded = self.is_policy_excluded(
-            service_name=service_name, display_name=display_name
+        return bool(
+            policy_excluded := self.is_policy_excluded(
+                service_name=service_name, display_name=display_name
+            )
         )
-        if policy_excluded:
-            return True
-        else:
-            return False
 
     def is_service_excluded(self, service_name: str) -> bool:
-        if service_name in self.exclude_services:
-            return True
-        else:
-            return False
+        return service_name in self.exclude_services
 
 
 def get_default_config(exclude_services: list = None, match_only_keywords: list = None, exclude_keywords: list = None) -> Config:
@@ -184,13 +163,12 @@ def get_default_config(exclude_services: list = None, match_only_keywords: list 
         cfg_match_only_keywords.extend(match_only_keywords)
     if exclude_keywords:
         cfg_exclude_keywords.extend(exclude_keywords)
-    config = Config(
+    return Config(
         exclude_policies=exclude_policies,
         exclude_services=cfg_exclude_services,
         match_only_keywords=cfg_match_only_keywords,
         exclude_keywords=cfg_exclude_keywords,
     )
-    return config
 
 
 def get_config_from_file(config_file: str, exclude_services: list = None) -> Config:
@@ -211,23 +189,21 @@ def get_config_from_file(config_file: str, exclude_services: list = None) -> Con
     # Keywords to explicitly avoid
     exclude_keywords = config_cfg.get("exclude_keywords", None)
 
-    config = Config(
+    return Config(
         exclude_policies=cfg_exclude_policies,
         exclude_services=cfg_exclude_services,
         match_only_keywords=match_only_keywords,
-        exclude_keywords=exclude_keywords
+        exclude_keywords=exclude_keywords,
     )
-    return config
 
 
 def get_empty_config() -> Config:
-    config = Config(
+    return Config(
         exclude_policies={},
         exclude_services=None,
         match_only_keywords=None,
-        exclude_keywords=None
+        exclude_keywords=None,
     )
-    return config
 
 
 DEFAULT_CONFIG_TEMPLATE = get_config_template()

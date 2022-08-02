@@ -73,10 +73,7 @@ class PolicyDefinition:
         """Return true if there are no parameters for the Policy Definition or if the only parameter is 'effect'"""
         result = True
         # Fixing issue #92
-        if self.properties.parameters:
-            return False
-        else:
-            return True
+        return not self.properties.parameters
             # for parameter in self.properties.parameters:
             #     if parameter == "effect":
             #         continue
@@ -88,57 +85,38 @@ class PolicyDefinition:
     @property
     def params_optional(self) -> bool:
         """Return true if there are parameters for the Policy Definition and they have default values, making them optional"""
-        result = True
         if self.no_params:
             # We will return False, because there are no params at all - optional or not.
             return False
-        for parameter, parameter_details in self.parameters.items():
-            # Fixing issue #92
-            # if parameter == "effect":
-            #     continue
-            # We should allow you to print out the options to a YAML file and fill it out like a form.
-            # So right now, it will create a long Kubernetes policy, but it will have lots of empty lists that we have to fill out. Oh well.
-            if not parameter_details.default_value:
-                # if not parameter.default_value and parameter.default_value != [] and parameter.default_value != "":
-                result = False
-                break
-        return result
+        return all(
+            parameter_details.default_value
+            for parameter, parameter_details in self.parameters.items()
+        )
 
     @property
     def params_required(self) -> bool:
         """Return true if there are parameters for the Policy Definition and they are not optional"""
-        if self.no_params or self.params_optional:
-            return False
-        else:
-            return True
+        return not self.no_params and not self.params_optional
 
     def get_optional_parameters(self) -> list:
         """Return a list of optional parameters"""
-        results = []
         if self.no_params or self.params_required:
             return []
-        else:
-            for parameter, parameter_details in self.parameters.items():
-                # Fixing issue #92
-                # if parameter == "effect":
-                #     continue
-                if parameter_details.default_value:
-                    results.append(parameter_details.name)
-        return results
+        return [
+            parameter_details.name
+            for parameter, parameter_details in self.parameters.items()
+            if parameter_details.default_value
+        ]
 
     def get_required_parameters(self) -> list:
         """Return a list of required parameters"""
-        results = []
         if self.no_params or self.params_optional:
             return []
-        else:
-            for parameter, parameter_details in self.parameters.items():
-                # Fixing issue #92
-                # if parameter == "effect":
-                #     continue
-                if not parameter_details.default_value:
-                    results.append(parameter_details.name)
-        return results
+        return [
+            parameter_details.name
+            for parameter, parameter_details in self.parameters.items()
+            if not parameter_details.default_value
+        ]
 
     @property
     def allowed_effects(self) -> list:
@@ -183,10 +161,6 @@ class PolicyDefinition:
                 f"Found append in the policy content for the policy: {self.display_name}"
             )
             allowed_effects.append("append")
-        else:
-            pass
-            # logger.debug(f"No deploy effect found for {self.display_name}")
-
         # Normalize names
         if allowed_effects:
             lowercase_allowed_effects = [x.lower() for x in allowed_effects]
@@ -199,40 +173,34 @@ class PolicyDefinition:
     @property
     def audit_only(self) -> bool:
         """Determine if the effect is only audit or auditIfNotExists"""
-        result = True
-        for effect in self.allowed_effects:
-            if effect not in ["disabled", "audit", "auditifnotexists"]:
-                result = False
-        return result
+        return all(
+            effect in ["disabled", "audit", "auditifnotexists"]
+            for effect in self.allowed_effects
+        )
 
     @property
     def modifies_resources(self) -> bool:
-        # Effects: https://docs.microsoft.com/en-us/azure/governance/policy/concepts/effects
         if (
-            "append" in self.allowed_effects
-            or "modify" in self.allowed_effects
-            or "deployifnotexists" in self.allowed_effects
+            "append" not in self.allowed_effects
+            and "modify" not in self.allowed_effects
+            and "deployifnotexists" not in self.allowed_effects
         ):
-            logger.debug(
-                f"{self.service_name} - modifies_resources: The policy definition {self.display_name} has the allowed_effects: {self.allowed_effects}"
-            )
-            return True
-        else:
             return False
+        logger.debug(
+            f"{self.service_name} - modifies_resources: The policy definition {self.display_name} has the allowed_effects: {self.allowed_effects}"
+        )
+        return True
 
     @property
     def is_deprecated(self) -> bool:
         """Determine whether the policy is deprecated or not"""
-        if self.properties.deprecated:
-            return True
-        else:
-            return False
+        return bool(self.properties.deprecated)
 
     def parameters_config(self) -> dict:
         """Return the parameters config for this policy definition"""
         if not self.params_optional and not self.params_required:
             return {}
-        parameters = dict()
-        for parameter, parameter_details in self.parameters.items():
-            parameters[parameter_details.name] = parameter_details.parameter_config()
-        return parameters
+        return {
+            parameter_details.name: parameter_details.parameter_config()
+            for parameter, parameter_details in self.parameters.items()
+        }

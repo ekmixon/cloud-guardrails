@@ -15,7 +15,7 @@ def combine_csvs():
         print(f"Removing the previous file: {file}")
         os.remove(file)
     # Create a list of the files that we want to combine
-    all_filenames = [i for i in glob.glob('*.{}'.format(extension))]
+    all_filenames = list(glob.glob(f'*.{extension}'))
     # combine all files in the list
     combined_csv = pd.concat([pd.read_csv(f) for f in all_filenames])
     combined_csv.sort_values(by=["Service", "Policy Definition"], inplace=True)

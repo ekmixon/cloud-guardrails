@@ -45,7 +45,7 @@ class TerraformTemplateWithParams:
             self.enforce = False
 
     def _initiative_name(self, subscription_name: str, management_group: str, parameter_requirement_str: str) -> str:
-        if subscription_name == "" and management_group == "":
+        if not subscription_name and not management_group:
             raise Exception(
                 "Please supply a value for the subscription name or the management group"
             )
@@ -53,11 +53,13 @@ class TerraformTemplateWithParams:
             parameter_requirement_str = f"{parameter_requirement_str}-Enforce"
         else:
             parameter_requirement_str = f"{parameter_requirement_str}-Audit"
-        if subscription_name:
-            initiative_name = utils.format_policy_name(subscription_name, parameter_requirement_str)
-        else:
-            initiative_name = utils.format_policy_name(management_group, parameter_requirement_str)
-        return initiative_name
+        return (
+            utils.format_policy_name(subscription_name, parameter_requirement_str)
+            if subscription_name
+            else utils.format_policy_name(
+                management_group, parameter_requirement_str
+            )
+        )
 
     @staticmethod
     def _policy_id_pairs(policy_id_pairs) -> dict:
@@ -110,16 +112,15 @@ class TerraformTemplateWithParams:
 
     @property
     def template_contents_json(self) -> dict:
-        template_contents = dict(
+        return dict(
             name=self.name,
             subscription_name=self.subscription_name,
             management_group=self.management_group,
             enforcement_mode=self.enforcement_string,
             policy_id_pairs=self.policy_id_pairs,
             policy_definition_reference_parameters=self.policy_definition_reference_parameters,
-            category=self.category
+            category=self.category,
         )
-        return template_contents
 
     def rendered(self) -> str:
         template_path = os.path.join(os.path.dirname(__file__), "with-parameters")
@@ -132,8 +133,7 @@ class TerraformTemplateWithParams:
         env.filters['strip_special_characters'] = utils.strip_special_characters
         env.tests['is_none_instance'] = utils.is_none_instance
         template = env.get_template("policy-initiative-with-parameters.tf.j2")
-        result = template.render(t=self.template_contents_json)
-        return result
+        return template.render(t=self.template_contents_json)
 
 
 def format_parameter_value(value):

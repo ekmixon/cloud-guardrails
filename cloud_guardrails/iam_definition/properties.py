@@ -53,9 +53,10 @@ class Properties:
             policy_rule=self.version,
         )
         if self.parameters:
-            parameters_result = {}
-            for parameter in self.parameters:
-                parameters_result[parameter.name] = parameter.json()
+            parameters_result = {
+                parameter.name: parameter.json() for parameter in self.parameters
+            }
+
             result["parameters"] = parameters_result
         return result
 
@@ -69,17 +70,11 @@ class Properties:
 
     @property
     def parameter_names(self) -> list:
-        if self.parameters:
-            return list(self.parameters.keys())
-        else:
-            return []
+        return list(self.parameters.keys()) if self.parameters else []
 
     @property
     def parameter_json(self) -> dict:
-        result = {}
         if self.parameters:
-            for name, value in self.parameters.items():
-                result[name] = value.json()
-            return result
+            return {name: value.json() for name, value in self.parameters.items()}
         else:
             return {}

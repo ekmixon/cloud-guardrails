@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 @click.option("--output", "-o", "output_file", type=click.Path(exists=False), required=True, default="parameters.yml", help="The path to the output file")
 @click.option("--config", "-c", "config_file", type=click.Path(exists=False), required=False, help="The path to the config file")
 @click.option("--exclude-services", "exclude_services", type=str, help="Exclude specific services (comma-separated) without using a config file.", callback=validate.click_validate_comma_separated_excluded_services)
-# Parameter Options
 @optgroup.group("Parameter Options", help="",)
 @optgroup.option("--optional-only", "-oo", is_flag=True, default=False, help="Include policies containing OPTIONAL parameters")
 @optgroup.option("--required-only", "-ro", is_flag=True, default=False, help="Include policies containing REQUIRED parameters")
@@ -54,15 +53,8 @@ def create_parameters_file(
             config_file=config_file, exclude_services=exclude_services
         )
 
-    params_optional = True
-    params_required = True
-    # If optional_only is set, only leave params_optional to True
-    if optional_only:
-        params_required = False
-    # If required_only is set, only leave params_required to True
-    if required_only:
-        params_optional = False
-
+    params_required = not optional_only
+    params_optional = not required_only
     # config_template = get_parameters_template()
     parameters_template = ParameterTemplate(config=config, params_optional=params_optional,
                                             params_required=params_required, enforce=enforce)

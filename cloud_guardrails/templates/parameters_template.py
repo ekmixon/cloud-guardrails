@@ -58,9 +58,10 @@ class ParameterTemplate:
         for service_name, service_policies in self.parameters_config.items():
             results[service_name] = {}
             for policy_name, policy_parameters in service_policies.items():
-                results[service_name][policy_name] = []
-                for parameter_segment in policy_parameters:
-                    results[service_name][policy_name].append(parameter_segment.json())
+                results[service_name][policy_name] = [
+                    parameter_segment.json()
+                    for parameter_segment in policy_parameters
+                ]
 
         return results
 
@@ -72,14 +73,13 @@ class ParameterTemplate:
         # Azure Policy effects: https://docs.microsoft.com/en-us/azure/governance/policy/concepts/effects
         result = default_value
         # Let's handle the "effect" parameter
-        if parameter_name == "effect" or parameter_name == "Effect":  # This is faster than using .lower()
-            if self.enforce:
-                # It could be Capitalized or lowercase in allowed_values
-                if "Deny" in allowed_values:
-                    result = "Deny"
-                # lowercase = [x.lower() for x in allowed_values]
-                if "deny" in allowed_values:
-                    result = "deny"
+        if parameter_name in {"effect", "Effect"} and self.enforce:
+            # It could be Capitalized or lowercase in allowed_values
+            if "Deny" in allowed_values:
+                result = "Deny"
+            # lowercase = [x.lower() for x in allowed_values]
+            if "deny" in allowed_values:
+                result = "deny"
         return result
 
     def set_parameter_config(self, categorized_parameters: CategorizedParameters) -> dict:

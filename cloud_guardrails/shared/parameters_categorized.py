@@ -69,23 +69,19 @@ class CategorizedParameters:
                                 if value not in policy_definition.properties.parameters[parameter_name].allowed_values:
                                     logger.warning(f"The value {value} is not in the list of allowed_values: {', '.join(policy_definition.properties.parameters[parameter_name].allowed_values)}. "
                                                    f"Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
-                        else:
-                            # If the parameter name is effect, let's evaluate in lowercase
-                            if parameter_name.lower() == "effect":
-                                lowercase_allowed_values = [x.lower() for x in allowed_values]
-                                if parameter_value.lower() not in lowercase_allowed_values:
-                                    logger.warning(
-                                        f"The value {parameter_value} is not in the list of allowed_values: {', '.join(policy_definition.properties.parameters[parameter_name].allowed_values)}. "
-                                        f"Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
-                            elif isinstance(parameter_value, type(None)):
-                                logger.warning(f"The value was not provided for {parameter_name}. "
-                                               f"Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
-                            # If the name is not effect, we can evaluate case sensitive
-                            else:
-                                if parameter_value not in policy_definition.properties.parameters[parameter_name].allowed_values:
-                                    logger.warning(
-                                        f"The value {str(parameter_value)} is not in the list of allowed_values: {', '.join(policy_definition.properties.parameters[parameter_name].allowed_values)}. "
-                                        f"Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
+                        elif parameter_name.lower() == "effect":
+                            lowercase_allowed_values = [x.lower() for x in allowed_values]
+                            if parameter_value.lower() not in lowercase_allowed_values:
+                                logger.warning(
+                                    f"The value {parameter_value} is not in the list of allowed_values: {', '.join(policy_definition.properties.parameters[parameter_name].allowed_values)}. "
+                                    f"Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
+                        elif isinstance(parameter_value, type(None)):
+                            logger.warning(f"The value was not provided for {parameter_name}. "
+                                           f"Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
+                        elif parameter_value not in policy_definition.properties.parameters[parameter_name].allowed_values:
+                            logger.warning(
+                                f"The value {str(parameter_value)} is not in the list of allowed_values: {', '.join(policy_definition.properties.parameters[parameter_name].allowed_values)}. "
+                                f"Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
 
     def set_service_categorized_parameters(self):
         """Now that we have validated the parameters to be included in the HCL file, let's set the values"""
@@ -99,11 +95,10 @@ class CategorizedParameters:
         results = {}
         for service_name, service_policies in all_policy_ids_sorted_by_service.items():
             # Case: "all"
-            if "all" in self.azure_policies.service_names:
-                pass
-            elif service_name in self.azure_policies.service_names:
-                pass
-            else:
+            if (
+                "all" not in self.azure_policies.service_names
+                and service_name not in self.azure_policies.service_names
+            ):
                 continue
             # if service_name not in self.azure_policies.service_names:
             #     continue
@@ -119,23 +114,20 @@ class CategorizedParameters:
 
                 for parameter_name in policy_definition.parameters:
                     if policy_definition.properties.parameters[parameter_name].allowed_values:
-                        # If allowed_values are supplied, make sure the values are legit
-                        if policy_definition.properties.parameters[parameter_name].allowed_values:
-                            allowed_values = policy_definition.properties.parameters[parameter_name].allowed_values
-                            self.validate_allowed_parameter_values(policy_name=policy_name, service_name=service_name,
-                                                                   policy_definition=policy_definition,
-                                                                   allowed_values=allowed_values,
-                                                                   parameter_name=parameter_name, parameter_value=None)
-                            results[service_name][policy_name][parameter_name] = policy_definition.parameters[
-                                parameter_name].json()
-                            if parameter_name == "effect" or parameter_name == "Effect":  # This is faster than using .lower()
-                                if self.enforce:
-                                    # It could be Capitalized or lowercase in allowed_values
-                                    if "Deny" in allowed_values:
-                                        results[service_name][policy_name][parameter_name]["value"] = "Deny"
-                                    # lowercase = [x.lower() for x in allowed_values]
-                                    if "deny" in allowed_values:
-                                        results[service_name][policy_name][parameter_name]["value"] = "deny"
+                        allowed_values = policy_definition.properties.parameters[parameter_name].allowed_values
+                        self.validate_allowed_parameter_values(policy_name=policy_name, service_name=service_name,
+                                                               policy_definition=policy_definition,
+                                                               allowed_values=allowed_values,
+                                                               parameter_name=parameter_name, parameter_value=None)
+                        results[service_name][policy_name][parameter_name] = policy_definition.parameters[
+                            parameter_name].json()
+                        if parameter_name in ["effect", "Effect"] and self.enforce:
+                            # It could be Capitalized or lowercase in allowed_values
+                            if "Deny" in allowed_values:
+                                results[service_name][policy_name][parameter_name]["value"] = "Deny"
+                            # lowercase = [x.lower() for x in allowed_values]
+                            if "deny" in allowed_values:
+                                results[service_name][policy_name][parameter_name]["value"] = "deny"
 
                     else:
                         results[service_name][policy_name][parameter_name] = policy_definition.parameters[
@@ -163,18 +155,14 @@ class CategorizedParameters:
         elif isinstance(parameter_value, type(None)):
             logger.debug(
                 f"The parameter {parameter_name} was not supplied. Please provide a valid value. Display name: {policy_name}. Service: {service_name}")
-        else:
-            # If the parameter name is effect, let's evaluate in lowercase
-            if parameter_name.lower() == "effect":
-                lowercase_allowed_values = [x.lower() for x in allowed_values]
-                if parameter_value.lower() not in lowercase_allowed_values:
-                    raise Exception(
-                        f"The value {parameter_value} is not in the list of allowed_values: {', '.join(policy_definition.properties.parameters[parameter_name].allowed_values)}. Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
-            # If the name is not effect, we can evaluate case sensitive
-            else:
-                if parameter_value not in policy_definition.properties.parameters[parameter_name].allowed_values:
-                    raise Exception(
-                        f"The value {parameter_value} is not in the list of allowed_values: {', '.join(policy_definition.properties.parameters[parameter_name].allowed_values)}. Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
+        elif parameter_name.lower() == "effect":
+            lowercase_allowed_values = [x.lower() for x in allowed_values]
+            if parameter_value.lower() not in lowercase_allowed_values:
+                raise Exception(
+                    f"The value {parameter_value} is not in the list of allowed_values: {', '.join(policy_definition.properties.parameters[parameter_name].allowed_values)}. Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
+        elif parameter_value not in policy_definition.properties.parameters[parameter_name].allowed_values:
+            raise Exception(
+                f"The value {parameter_value} is not in the list of allowed_values: {', '.join(policy_definition.properties.parameters[parameter_name].allowed_values)}. Parameter: {parameter_name}. Display name: {policy_name}. Service: {service_name}")
 
     def get_parameter_value_from_config(self, display_name: str, parameter_name: str):
         policy_id = self.azure_policies.get_policy_id_by_display_name(display_name=display_name)
@@ -199,18 +187,16 @@ class CategorizedParameters:
             logger.debug(f"User did not supply a parameter; key {missing_key} was not found in the parameters config.")
             user_supplied_value = None
 
-        # If the parameter is called effect and we are overriding to make everything enforce,
-        # then let's change the user supplied value to that
-        allowed_values = parameters[parameter_name].get("allowed_values", None)
-        if allowed_values:
-            if parameter_name == "effect" or parameter_name == "Effect":  # This is faster than using .lower()
-                if self.enforce:
-                    # It could be Capitalized or lowercase in allowed_values
-                    if "Deny" in allowed_values:
-                        user_supplied_value = "Deny"
-                    # lowercase = [x.lower() for x in allowed_values]
-                    if "deny" in allowed_values:
-                        user_supplied_value = "deny"
+        if allowed_values := parameters[parameter_name].get(
+            "allowed_values", None
+        ):
+            if parameter_name in {"effect", "Effect"} and self.enforce:
+                # It could be Capitalized or lowercase in allowed_values
+                if "Deny" in allowed_values:
+                    user_supplied_value = "Deny"
+                # lowercase = [x.lower() for x in allowed_values]
+                if "deny" in allowed_values:
+                    user_supplied_value = "deny"
 
         # Python thinks [] or {} is the same as None. Let's circumvent that
         if not user_supplied_value:
@@ -248,14 +234,11 @@ class CategorizedParameters:
                     user_supplied_value = []
                     logger.debug(
                         f"Parameter value supplied by user - an empty list. Using user-supplied value. Parameter: {parameter_name}. Value: {user_supplied_value}. Policy ID: {policy_id}")
-                    return user_supplied_value
                 elif isinstance(user_supplied_value, dict):
                     logger.debug(
                         f"Parameter value supplied by user - an empty object. Using user-supplied value. Parameter: {parameter_name}. Value: {user_supplied_value}. Policy ID: {policy_id}")
                     user_supplied_value = {}
-                    return user_supplied_value
-                else:
-                    return user_supplied_value
+                return user_supplied_value
         else:
             logger.debug(
                 f"Parameter supplied by user. Using user-supplied value. Parameter: {parameter_name}. Value: {user_supplied_value}. Policy ID: {policy_id}")

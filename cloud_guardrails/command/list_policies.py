@@ -120,9 +120,11 @@ def print_policies_in_yaml(
         params_required=params_required,
     )
     result = yaml.dump(display_names)
-    total_policies = 0
-    for service_name in display_names.keys():
-        total_policies += len(display_names[service_name])
+    total_policies = sum(
+        len(display_names[service_name])
+        for service_name in display_names.keys()
+    )
+
     print(result)
     if verbosity >= 1:
         print(f"total policies: {str(total_policies)}")

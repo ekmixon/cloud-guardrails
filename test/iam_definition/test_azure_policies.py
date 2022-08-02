@@ -27,7 +27,13 @@ class AzurePoliciesTestCase(unittest.TestCase):
         policy_id = "73ef9241-5d81-4cd4-b483-8443d1730fe5"
         # Validate metadata is returned as expected
         self.assertTrue(policy_id == self.azure_policies.lookup(policy_property="short_id", policy_id=policy_id))
-        self.assertTrue("API Management" == self.azure_policies.lookup(policy_property="service_name", policy_id=policy_id))
+        self.assertTrue(
+            self.azure_policies.lookup(
+                policy_property="service_name", policy_id=policy_id
+            )
+            == "API Management"
+        )
+
         # self.assertTrue("API Management" in self.azure_policies.lookup(policy_property="display_name", policy_id=policy_id))
         print(self.azure_policies.lookup(policy_property="display_name", policy_id=policy_id))
         expected_display_name = "API Management service should use a SKU that supports virtual networks"
@@ -283,9 +289,7 @@ class AzurePoliciesTestCase(unittest.TestCase):
         policy_id_pairs = self.kv_azure_policies.get_all_policy_ids_sorted_by_service(no_params=True)
         # print(json.dumps(policy_id_pairs, indent=4))
         kv_policy_names = list(policy_id_pairs.get("Key Vault").keys())
-        revised_names = []
-        for name in kv_policy_names:
-            revised_names.append(remove_preview_name(name))
+        revised_names = [remove_preview_name(name) for name in kv_policy_names]
         expected_results_file = os.path.join(os.path.dirname(__file__), os.path.pardir, "files", "policy_id_pairs_kv.json")
         expected_results = utils.read_json_file(expected_results_file)
         # print(json.dumps(expected_results, indent=4))

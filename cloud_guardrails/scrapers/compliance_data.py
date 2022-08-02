@@ -61,9 +61,11 @@ class PolicyDefinitionMetadata:
         )
 
     def __repr__(self) -> str:
-        benchmark_response = {}
-        for benchmark, benchmark_value in self.benchmarks.items():
-            benchmark_response[benchmark_value.benchmark] = benchmark_value.json()
+        benchmark_response = {
+            benchmark_value.benchmark: benchmark_value.json()
+            for benchmark, benchmark_value in self.benchmarks.items()
+        }
+
         result = dict(
             policy_id=self.policy_id,
             effects=self.effects,
@@ -85,15 +87,13 @@ class PolicyDefinitionMetadata:
     def _benchmarks(
         self, benchmark: str, category: str, requirement: str, requirement_id: str
     ) -> {BenchmarkEntry}:
-        result = {}
         benchmark_entry = BenchmarkEntry(
             benchmark=benchmark,
             category=category,
             requirement=requirement,
             requirement_id=requirement_id,
         )
-        result[benchmark] = benchmark_entry
-        return result
+        return {benchmark: benchmark_entry}
 
     def get_compliance_data_matching_policy_definition(self) -> dict:
         result = {}
@@ -119,9 +119,11 @@ class ComplianceResultsTransformer:
         self.results = self._results()
 
     def __repr__(self) -> str:
-        response = {}
-        for result_key, result_value in self.results.items():
-            response[result_key] = result_value.json()
+        response = {
+            result_key: result_value.json()
+            for result_key, result_value in self.results.items()
+        }
+
         return json.dumps(response)
 
     def json(self) -> dict:

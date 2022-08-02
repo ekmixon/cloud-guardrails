@@ -49,7 +49,7 @@ def update_compliance_data(destination, download):
     destination = os.path.abspath(destination)
     print(destination)
     # Get the file names
-    for standard, link in links.items():
+    for standard in links:
         filename = os.path.join(destination, f"{standard}.html")
         files.append(filename)
 

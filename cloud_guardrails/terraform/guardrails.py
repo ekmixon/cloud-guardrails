@@ -55,12 +55,11 @@ class TerraformGuardrails:
         self.verbosity = verbosity
 
     def set_iam_definition(self) -> AzurePolicies:
-        # Initialize the IAM Definition
-        if self.service == "all":
-            azure_policies = AzurePolicies(service_names=["all"], config=self.config)
-        else:
-            azure_policies = AzurePolicies(service_names=[self.service], config=self.config)
-        return azure_policies
+        return (
+            AzurePolicies(service_names=["all"], config=self.config)
+            if self.service == "all"
+            else AzurePolicies(service_names=[self.service], config=self.config)
+        )
 
     @property
     def parameter_requirement_str(self) -> str:
@@ -87,30 +86,44 @@ class TerraformGuardrails:
             return f"params_required{service_string}.tf"
 
     def policy_id_pairs(self) -> dict:
-        if self.no_params:
-            policy_ids_sorted_by_service = self.azure_policies.get_all_policy_ids_sorted_by_service(
-                no_params=True, params_optional=self.params_optional, params_required=self.params_required,
-                audit_only=self.audit_only, enforce=self.enforcement_mode)
-        else:
-            policy_ids_sorted_by_service = self.azure_policies.get_all_policy_ids_sorted_by_service(
-                no_params=self.no_params, params_optional=self.params_optional, params_required=self.params_required,
-                audit_only=self.audit_only, enforce=self.enforcement_mode)
-        return policy_ids_sorted_by_service
+        return (
+            self.azure_policies.get_all_policy_ids_sorted_by_service(
+                no_params=True,
+                params_optional=self.params_optional,
+                params_required=self.params_required,
+                audit_only=self.audit_only,
+                enforce=self.enforcement_mode,
+            )
+            if self.no_params
+            else self.azure_policies.get_all_policy_ids_sorted_by_service(
+                no_params=self.no_params,
+                params_optional=self.params_optional,
+                params_required=self.params_required,
+                audit_only=self.audit_only,
+                enforce=self.enforcement_mode,
+            )
+        )
 
     def policy_names(self) -> list:
         policy_id_pairs = self.policy_id_pairs()
         policies = []
         for service_name, service_policies in policy_id_pairs.items():
-            for service_policy_name, service_policy_content in service_policies.items():
-                policies.append(service_policy_name)
+            policies.extend(
+                service_policy_name
+                for service_policy_name, service_policy_content in service_policies.items()
+            )
+
         return policies
 
     def policy_ids(self) -> list:
         policy_id_pairs = self.policy_id_pairs()
         policies = []
         for service_name, service_policies in policy_id_pairs.items():
-            for service_policy_name, service_policy_content in service_policies.items():
-                policies.append(service_policy_content.get("display_name"))
+            policies.extend(
+                service_policy_content.get("display_name")
+                for service_policy_name, service_policy_content in service_policies.items()
+            )
+
         return policies
 
     def generate_terraform(self):
@@ -152,7 +165,10 @@ class TerraformGuardrails:
     def create_terraform_file(self, output_file: str):
         terraform_content = self.generate_terraform()
         if os.path.exists(output_file):
-            logger.info("%s exists. Removing the file and replacing its contents." % output_file)
+            logger.info(
+                f"{output_file} exists. Removing the file and replacing its contents."
+            )
+
             os.remove(output_file)
         with open(output_file, "w") as f:
             f.write(terraform_content)
@@ -166,7 +182,10 @@ class TerraformGuardrails:
         template = env.get_template("provider.tf.j2")
         rendered_template = template.render(t=template_contents)
         if os.path.exists(output_file):
-            logger.info("%s exists. Removing the file and replacing its contents." % output_file)
+            logger.info(
+                f"{output_file} exists. Removing the file and replacing its contents."
+            )
+
             os.remove(output_file)
         with open(output_file, "w") as f:
             f.write(rendered_template)
@@ -209,10 +228,10 @@ class TerraformGuardrails:
 
         if enforcement_mode:
             enforcement_message = f"Enables {self.green_policy_count()} security policies in {Fore.GREEN}Enforcement mode{utils.END} (illegal resource " \
-                                  f"\n      changes will be denied)"
+                                      f"\n      changes will be denied)"
         else:
             enforcement_message = f"Enables {self.green_policy_count()} security policies in {Fore.GREEN}Audit mode{utils.END} (illegal resource " \
-                                  f"\n      changes will be logged)"
+                                      f"\n      changes will be logged)"
 
         if self.service == "all":
             service_message = f"Covers {Fore.GREEN}all{utils.END} services supported by Azure Policies."
